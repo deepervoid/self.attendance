@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>self attendance</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<style>
+:root{--bg:#000;--card:#0c0e13;--line:#1c2029;--tx:#eef1f6;--mu:#7c8494;--g:#12b34a;--r:#e5192d;--o:#ff7a12;--b:#2f6bff;--p:#7a5cff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--tx);font-family:"Segoe UI",Roboto,system-ui,sans-serif;min-height:100%}
+body{padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+header{display:flex;align-items:center;gap:8px;padding:14px 16px;position:sticky;top:0;background:var(--bg);z-index:5}
+header h1{flex:1;font-size:20px;font-weight:600;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ib{width:40px;height:40px;border-radius:12px;font-size:22px;display:grid;place-items:center}
+.ib:active{background:var(--line)}
+#deck{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;padding:18px calc(50vw - min(39vw,170px)) 28px;scrollbar-width:none}
+#deck::-webkit-scrollbar{display:none}
+.card{flex:0 0 min(78vw,340px);height:min(62vh,470px);scroll-snap-align:center;background:linear-gradient(170deg,#12151c,var(--card) 55%);border:1px solid var(--line);border-radius:26px;padding:22px;display:flex;flex-direction:column;box-shadow:0 18px 40px #000a}
+.card .em{font-size:44px}
+.card .nm{font-size:22px;font-weight:600;margin:8px 0 0}
+.card .pct{font-size:64px;font-weight:300;letter-spacing:-2px;margin-top:auto}
+.bar{position:relative;height:10px;border-radius:6px;background:#1a1e27;margin:10px 0 8px}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:var(--g)}
+.bar i.lo{background:var(--o)}
+.bar u{position:absolute;top:-5px;bottom:-5px;width:2px;background:#fff;border-radius:2px}
+.meta{display:flex;justify-content:space-between;font-size:13px;color:var(--mu);gap:8px}
+.q{display:flex;gap:8px;margin-top:16px}
+.q button{flex:1;padding:11px;border-radius:14px;background:#161a22;font-size:14px}
+.q button[data-q=present]{color:#4ee082}.q button[data-q=absent]{color:#ff5a68}
+.empty{text-align:center;color:var(--mu);padding:30vh 30px}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:0 12px}
+.nav button{padding:10px 18px;border:1px solid var(--g);border-radius:12px;background:#10151a}
+.nav span{font-size:22px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);margin:12px;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.cal div{min-height:60px;border:.5px solid var(--line);text-align:center;padding-top:8px;font-size:17px;position:relative}
+.cal .h{min-height:0;padding:10px 0;font-size:13px;color:var(--mu)}
+.cal small{display:block;color:var(--r);font-size:10px;font-weight:700;line-height:1.1;margin-top:3px}
+.cal .today{outline:2px solid var(--b);outline-offset:-2px}
+.cal .present{background:var(--g)}.cal .absent{background:var(--r)}.cal .half{background:var(--o)}
+.cal [class*=leave]{background:var(--p)}
+.cal .present small,.cal .absent small,.cal .half small,.cal [class*=leave] small{color:#fff}
+.cal .nt::after{content:"";position:absolute;right:5px;top:5px;width:6px;height:6px;border-radius:50%;background:#ffd84a}
+.panel{margin:12px;border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--card)}
+.panel select{background:#161a22;color:var(--tx);border:1px solid var(--g);border-radius:10px;padding:8px 10px;font:inherit;width:100%}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin:14px 0;font-size:16px}
+.grid2 b{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:8px}
+.big{font-size:20px}
+#ov{position:fixed;inset:0;background:#000a;display:none;align-items:flex-end;z-index:20}
+#ov.on{display:flex}
+#sh{width:100%;background:#16191f;border-radius:22px 22px 0 0;padding:10px 8px calc(14px + env(safe-area-inset-bottom));max-height:85vh;overflow:auto}
+#sh h3{margin:10px 14px;font-size:15px;color:#6fd4c0;font-weight:600}
+#sh button.row{display:flex;width:100%;gap:14px;align-items:center;text-align:left;padding:15px 14px;font-size:18px;border-radius:12px}
+#sh button.row:active{background:#232830}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:4px 14px 10px}
+.chips button{padding:10px 14px;border-radius:12px;background:#232830;font-size:15px}
+#sh input{width:calc(100% - 28px);margin:6px 14px;padding:13px;border-radius:12px;border:1px solid var(--line);background:#0c0e13;color:var(--tx);font:inherit}
+.pri{background:var(--g)!important;color:#000!important;font-weight:600;justify-content:center}
+.foot{text-align:center;color:var(--mu);font-size:12px;padding:6px 20px 20px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="ov"><div id="sh"></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const $=s=>document.querySelector(s), pad=n=>String(n).padStart(2,'0');
+const LBL={present:'Present',absent:'Absent',half:'Half Day',holiday:'Holiday',off:'Weekly Off','leave-privileged':'Privileged leave','leave-casual':'Casual leave','leave-sick':'Sick leave','leave-other':'Other leave'};
+const SHORT={holiday:'Holiday',off:'Weekly Off'};
+let S={}, cur=null, ym=new Date(), scope='month', dir=null, backend='';
+
+/* ---------- storage: OPFS (real files) with IndexedDB fallback ---------- */
+const idb=()=>new Promise((r,j)=>{const q=indexedDB.open('att',1);q.onupgradeneeded=()=>q.result.createObjectStore('f');q.onsuccess=()=>r(q.result);q.onerror=j});
+const idbDo=async f=>{const d=await idb();return new Promise((r,j)=>{const t=d.transaction('f','readwrite');f(t.objectStore('f'));t.oncomplete=r;t.onerror=j})};
+async function idbAll(){const d=await idb();return new Promise(r=>{const o={};const q=d.transaction('f').objectStore('f').openCursor();q.onsuccess=()=>{const c=q.result;if(c){o[c.key]=c.value;c.continue()}else r(o)}})}
+async function initStore(){
+  try{
+    const r=await navigator.storage.getDirectory(), d=await r.getDirectoryHandle('attendance',{create:true});
+    const h=await d.getFileHandle('.probe',{create:true}), w=await h.createWritable(); await w.write('1'); await w.close();
+    dir=d; backend='device files (.md)'; navigator.storage.persist&&navigator.storage.persist();
+  }catch(e){dir=null;backend='device storage (indexeddb)'}
+}
+async function listFiles(){
+  if(!dir){const a=await idbAll(),o={};for(const k in a)if(k.endsWith('.md'))o[k]=a[k];return o}
+  const o={}; for await(const [n,h] of dir.entries()) if(n.endsWith('.md')) o[n]=await (await h.getFile()).text(); return o;
+}
+async function writeFile(n,t){
+  mirror(n,t);
+  if(!dir)return idbDo(s=>s.put(t,n));
+  const h=await dir.getFileHandle(n,{create:true}), w=await h.createWritable(); await w.write(t); await w.close();
+}
+async function delFile(n){ if(!dir)return idbDo(s=>s.delete(n)); await dir.removeEntry(n).catch(()=>{}); }
+
+/* ---------- optional: mirror to a real folder (desktop chrome/edge) + import ---------- */
+let ext=null;
+async function initExt(){try{const d=await idb();ext=await new Promise(r=>{const q=d.transaction('f').objectStore('f').get('__dir');q.onsuccess=()=>r(q.result||null);q.onerror=()=>r(null)})}catch(e){}}
+async function mirror(n,t){if(!ext)return;try{const h=await ext.getFileHandle(n,{create:true}),w=await h.createWritable();await w.write(t);await w.close()}catch(e){}}
+async function linkFolder(){
+  if(!window.showDirectoryPicker)return alert('this browser cannot link a folder (android browsers cannot). use download all .md and import instead.');
+  try{
+    if(ext&&await ext.requestPermission({mode:'readwrite'})=='granted'){}
+    else{ext=await showDirectoryPicker({mode:'readwrite'});await idbDo(s=>s.put(ext,'__dir'))}
+  }catch(e){return}
+  for(const o of Object.values(S))await mirror(o.file,ser(o));
+  alert('folder synced. every change now also saves there.');
+}
+function importMd(){
+  const i=document.createElement('input');i.type='file';i.multiple=true;
+  i.onchange=async()=>{for(const f of i.files){const n=f.name.endsWith('.md')?f.name:f.name+'.md',o=parse(await f.text(),n);S[n]=o;await save(o)}close();home()};
+  i.click();
+}
+
+/* ---------- md format ---------- */
+function parse(txt,file){
+  const o={file,name:file.replace('.md',''),emoji:'📘',target:75,days:{}};
+  const m=txt.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/); if(!m)return o;
+  m[1].split('\n').forEach(l=>{const i=l.indexOf(':');if(i<0)return;const k=l.slice(0,i).trim(),v=l.slice(i+1).trim();if(k=='target')o.target=+v||75;else if(k=='name'||k=='emoji')o[k]=v});
+  m[2].split('\n').forEach(l=>{const p=l.split('|').map(x=>x.trim());if(/^\d{4}-\d\d-\d\d$/.test(p[0]))o.days[p[0]]={s:p[1]||'',n:p.slice(2).join(' | ')}});
+  return o;
+}
+const ser=o=>`---\nname: ${o.name}\nemoji: ${o.emoji}\ntarget: ${o.target}\n---\n`+Object.keys(o.days).sort().filter(k=>o.days[k].s||o.days[k].n).map(k=>`${k} | ${o.days[k].s}${o.days[k].n?' | '+o.days[k].n.replace(/\n/g,' '):''}`).join('\n')+'\n';
+const save=o=>writeFile(o.file,ser(o));
+
+/* ---------- maths ---------- */
+const key=(y,m,d)=>`${y}-${pad(m+1)}-${pad(d)}`;
+const today=()=>{const t=new Date();return key(t.getFullYear(),t.getMonth(),t.getDate())};
+function stats(o,pre){
+  const c={present:0,absent:0,half:0,leave:0,holiday:0,off:0};
+  for(const k in o.days){if(pre&&!k.startsWith(pre))continue;const s=o.days[k].s;if(!s)continue;if(s.startsWith('leave'))c.leave++;else c[s]++}
+  c.T=c.present+c.half+c.absent+c.leave; c.A=c.present+c.half*.5; c.pct=c.T?Math.round(c.A/c.T*100):0; return c;
+}
+function hint(o){
+  const c=stats(o),t=o.target/100; if(!c.T)return'no classes yet';
+  if(c.A/c.T>=t){const n=t>0?Math.floor(c.A/t-c.T+1e-9):0;return n>0?`can skip ${n} more`:'right on target'}
+  if(t>=1)return'below target';
+  return `attend next ${Math.ceil((t*c.T-c.A)/(1-t)-1e-9)}`;
+}
+
+/* ---------- ui helpers ---------- */
+function sheet(h){$('#sh').innerHTML=h;$('#ov').classList.add('on')}
+function close(){$('#ov').classList.remove('on')}
+$('#ov').addEventListener('click',e=>{if(e.target.id=='ov')close()});
+function dl(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- home ---------- */
+function home(){
+  cur=null; const list=Object.values(S).sort((a,b)=>a.name.localeCompare(b.name));
+  $('#app').innerHTML=`<header><h1>Self Attendance</h1><button class="ib" data-a="add">＋</button><button class="ib" data-a="menu">⋮</button></header>`+
+  (list.length?`<div id="deck">${list.map(o=>{const c=stats(o),ok=c.pct>=o.target;return `<div class="card" data-f="${esc(o.file)}"><div class="em">${esc(o.emoji)}</div><div class="nm">${esc(o.name)}</div><div class="pct">${c.pct}%</div><div class="bar"><i class="${ok?'':'lo'}" style="width:${c.pct}%"></i><u style="left:calc(${o.target}% - 1px)"></u></div><div class="meta"><span>target ${o.target}%</span><span>${hint(o)}</span></div><div class="q"><button data-q="present">Present today</button><button data-q="absent">Absent today</button></div></div>`}).join('')}</div>`
+  :`<div class="empty">no subjects yet.<br>tap ＋ to add your first one.</div>`)+`<div class="foot">saved on this device · ${backend}</div>`;
+}
+
+/* ---------- subject ---------- */
+function subject(){
+  const o=cur,y=ym.getFullYear(),m=ym.getMonth(),first=new Date(y,m,1).getDay(),n=new Date(y,m+1,0).getDate(),t=today();
+  const mn=ym.toLocaleString('en',{month:'short'}).toUpperCase()+' '+y;
+  let cells=['SUN','MON','TUE','WED','THU','FRI','SAT'].map(d=>`<div class="h">${d}</div>`).join('')+'<div></div>'.repeat(first);
+  for(let d=1;d<=n;d++){const k=key(y,m,d),r=o.days[k]||{},s=r.s||'';
+    cells+=`<div data-d="${k}" class="${s} ${k==t?'today':''} ${r.n?'nt':''}">${d}${s&&!['present','absent','half'].includes(s)?`<small>${s.startsWith('leave')?'Leave':SHORT[s]}</small>`:''}</div>`}
+  const c=stats(o,scope=='month'?`${y}-${pad(m+1)}`:''),ok=c.pct>=o.target;
+  $('#app').innerHTML=`<header><button class="ib" data-a="back">←</button><h1>${esc(o.name)} ${esc(o.emoji)}</h1><button class="ib" data-a="smenu">⋮</button></header>
+  <div class="nav"><button data-a="prev">‹ PREV</button><span>${mn}</span><button data-a="next">NEXT ›</button></div>
+  <div class="cal">${cells}</div>
+  <div class="panel"><select data-a="scope"><option value="month" ${scope=='month'?'selected':''}>Attendance for this month</option><option value="all" ${scope=='all'?'selected':''}>Attendance for all months</option></select>
+  <div class="grid2"><div><b style="background:var(--g)"></b>Present : ${c.present}</div><div><b style="background:var(--r)"></b>Absent : ${c.absent}</div><div><b style="background:var(--o)"></b>Half Days : ${c.half}</div><div><b style="background:var(--p)"></b>Leaves : ${c.leave}</div><div>Holidays : ${c.holiday}</div><div>Weekly Off : ${c.off}</div></div>
+  <div class="big">Percentage : <b style="color:${ok?'#4ee082':'#ff9a4d'}">${c.pct}%</b> <span style="color:var(--mu);font-size:14px">/ target ${o.target}%</span></div>
+  <div class="bar" style="margin-top:12px"><i class="${ok?'':'lo'}" style="width:${c.pct}%"></i><u style="left:calc(${o.target}% - 1px)"></u></div>
+  <div class="meta"><span>${hint(o)}</span></div></div>`;
+}
+function daySheet(k){
+  const r=cur.days[k]||{s:'',n:''};
+  sheet(`<h3>${k}</h3>
+  <button class="row" data-s="present"><span style="color:#4ee082">✔</span>Present</button>
+  <button class="row" data-s="absent"><span style="color:#ff5a68">✕</span>Absent</button>
+  <button class="row" data-s="half"><span style="color:var(--o)">◐</span>Half Day</button>
+  <button class="row" data-s="holiday"><span style="color:var(--r)">⌂</span>Holiday</button>
+  <button class="row" data-s="off"><span style="color:var(--r)">⊘</span>Weekly Off</button>
+  <h3>Leave</h3><div class="chips">${['privileged','casual','sick','other'].map(x=>`<button data-s="leave-${x}">${x[0].toUpperCase()+x.slice(1)}</button>`).join('')}</div>
+  <button class="row" data-s="__note"><span style="color:#ffd84a">✎</span>Note${r.n?': '+esc(r.n.slice(0,24)):''}</button>
+  <button class="row" data-s=""><span style="color:var(--mu)">☐</span>Clear</button>`);
+  $('#sh').dataset.k=k;
+}
+function setDay(k,s){
+  const r=cur.days[k]||{s:'',n:''};
+  if(s=='__note'){const v=prompt('Note for '+k,r.n);if(v===null)return;r.n=v}else r.s=s;
+  cur.days[k]=r; save(cur); close(); subject();
+}
+function formSheet(o){
+  sheet(`<h3>${o?'Edit subject':'New subject'}</h3><input id="f1" placeholder="Subject name" value="${o?esc(o.name):''}"><input id="f2" placeholder="Emoji" value="${o?esc(o.emoji):'📘'}"><input id="f3" type="number" min="1" max="100" placeholder="Target attendance %" value="${o?o.target:75}"><div class="chips"><button class="row pri" style="width:100%" data-a="saveform" data-e="${o?1:0}">Save</button></div>`);
+}
+async function saveForm(edit){
+  const name=$('#f1').value.trim(); if(!name)return;
+  const emoji=$('#f2').value.trim()||'📘', target=Math.min(100,Math.max(1,+$('#f3').value||75));
+  if(edit){Object.assign(cur,{name,emoji,target})}
+  else{const id=name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'subject';let f=id+'.md',i=2;while(S[f])f=id+'-'+(i++)+'.md';cur={file:f,name,emoji,target,days:{}};S[f]=cur}
+  await save(cur); close(); edit?subject():home();
+}
+function exportX(){
+  if(!window.XLSX)return alert('excel library failed to load. connect to the internet once and retry.');
+  const wb=XLSX.utils.book_new(),sum=[['Subject','Target %','Present','Half days','Absent','Leaves','Attendance %','Status']];
+  Object.values(S).forEach(o=>{const c=stats(o);sum.push([o.name,o.target,c.present,c.half,c.absent,c.leave,c.pct,c.pct>=o.target?'On target':'Below target'])});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),'Summary');
+  Object.values(S).forEach((o,i)=>{const rows=[['Date','Status','Note']];Object.keys(o.days).sort().forEach(k=>rows.push([k,LBL[o.days[k].s]||'',o.days[k].n]));
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),(i+1+' '+o.name).replace(/[\\\/?*\[\]:]/g,'').slice(0,31))});
+  XLSX.writeFile(wb,'attendance_'+today()+'.xlsx');
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click',async e=>{
+  const t=e.target.closest('[data-a],[data-q],[data-d],[data-s],.card'); if(!t)return;
+  const a=t.dataset.a;
+  if(t.dataset.q!==undefined){const o=S[t.closest('.card').dataset.f];o.days[today()]={s:t.dataset.q,n:(o.days[today()]||{}).n||''};await save(o);home();return}
+  if(t.dataset.s!==undefined){setDay($('#sh').dataset.k,t.dataset.s);return}
+  if(t.dataset.d){daySheet(t.dataset.d);return}
+  if(a=='add')cur=null,formSheet(null);
+  else if(a=='saveform')saveForm(t.dataset.e=='1');
+  else if(a=='menu')sheet(`<h3>Menu</h3><button class="row" data-a="xl">⬇ Export to Excel</button><button class="row" data-a="allmd">⬇ Download all .md files</button><button class="row" data-a="imp">⬆ Import .md files</button><button class="row" data-a="folder">📁 Sync to a folder (desktop)</button>`);
+  else if(a=='imp'){close();importMd()}
+  else if(a=='folder'){close();linkFolder()}
+  else if(a=='xl'){close();exportX()}
+  else if(a=='allmd'){close();Object.values(S).forEach(o=>dl(o.file,new Blob([ser(o)],{type:'text/markdown'})))}
+  else if(a=='back')home();
+  else if(a=='prev'){ym=new Date(ym.getFullYear(),ym.getMonth()-1,1);subject()}
+  else if(a=='next'){ym=new Date(ym.getFullYear(),ym.getMonth()+1,1);subject()}
+  else if(a=='smenu')sheet(`<h3>${esc(cur.name)}</h3><button class="row" data-a="edit">✎ Edit name / target</button><button class="row" data-a="md">⬇ Download .md</button><button class="row" data-a="del" style="color:#ff5a68">🗑 Delete subject</button>`);
+  else if(a=='edit')formSheet(cur);
+  else if(a=='md'){close();dl(cur.file,new Blob([ser(cur)],{type:'text/markdown'}))}
+  else if(a=='del'){if(confirm('Delete '+cur.name+' and all its attendance?')){await delFile(cur.file);delete S[cur.file];close();home()}}
+  else if(t.classList.contains('card')){cur=S[t.dataset.f];ym=new Date();subject()}
+});
+document.addEventListener('change',e=>{if(e.target.dataset.a=='scope'){scope=e.target.value;subject()}});
+
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+(async()=>{await initStore();await initExt();const f=await listFiles();for(const n in f)S[n]=parse(f[n],n);home()})();
+</script>
+</body>
+</html>
