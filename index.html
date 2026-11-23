@@ -46,6 +46,7 @@ header h1{flex:1;font-family:var(--cry);font-size:18px;font-weight:400;margin:0;
 .cal .present{background:var(--g)}.cal .absent{background:var(--r)}.cal .half{background:var(--o)}
 .cal [class*=leave]{background:var(--p)}
 .cal .present small,.cal .absent small,.cal .half small,.cal [class*=leave] small{color:#fff}
+.cal em{position:absolute;left:5px;top:5px;font-style:normal;font-size:11px;background:#000b;color:#fff;border-radius:6px;padding:0 4px}
 .cal .nt::after{content:"";position:absolute;right:5px;top:5px;width:6px;height:6px;border-radius:50%;background:#ffd84a}
 .panel{margin:12px;border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--card)}
 .panel select{background:#161a22;color:var(--tx);border:1px solid var(--g);border-radius:10px;padding:8px 10px;font:inherit;width:100%}
@@ -121,10 +122,10 @@ function parse(txt,file){
   const o={file,name:file.replace('.md',''),emoji:'📘',target:75,days:{}};
   const m=txt.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/); if(!m)return o;
   m[1].split('\n').forEach(l=>{const i=l.indexOf(':');if(i<0)return;const k=l.slice(0,i).trim(),v=l.slice(i+1).trim();if(k=='target')o.target=+v||75;else if(k=='name'||k=='emoji')o[k]=v});
-  m[2].split('\n').forEach(l=>{const p=l.split('|').map(x=>x.trim());if(/^\d{4}-\d\d-\d\d$/.test(p[0]))o.days[p[0]]={s:p[1]||'',n:p.slice(2).join(' | ')}});
+  m[2].split('\n').forEach(l=>{const p=l.split('|').map(x=>x.trim());if(/^\d{4}-\d\d-\d\d$/.test(p[0])){const m=(p[1]||'').match(/^(.*?)\s*(?:x(\d+))?$/);o.days[p[0]]={s:m[1],c:+m[2]||1,n:p.slice(2).join(' | ')}}});
   return o;
 }
-const ser=o=>`---\nname: ${o.name}\nemoji: ${o.emoji}\ntarget: ${o.target}\n---\n`+Object.keys(o.days).sort().filter(k=>o.days[k].s||o.days[k].n).map(k=>`${k} | ${o.days[k].s}${o.days[k].n?' | '+o.days[k].n.replace(/\n/g,' '):''}`).join('\n')+'\n';
+const ser=o=>`---\nname: ${o.name}\nemoji: ${o.emoji}\ntarget: ${o.target}\n---\n`+Object.keys(o.days).sort().filter(k=>o.days[k].s||o.days[k].n||o.days[k].c>1).map(k=>`${k} | ${o.days[k].s}${o.days[k].c>1?(o.days[k].s?' ':'')+'x'+o.days[k].c:''}${o.days[k].n?' | '+o.days[k].n.replace(/\n/g,' '):''}`).join('\n')+'\n';
 const save=o=>writeFile(o.file,ser(o));
 
 /* ---------- maths ---------- */
@@ -132,7 +133,7 @@ const key=(y,m,d)=>`${y}-${pad(m+1)}-${pad(d)}`;
 const today=()=>{const t=new Date();return key(t.getFullYear(),t.getMonth(),t.getDate())};
 function stats(o,pre){
   const c={present:0,absent:0,half:0,leave:0,holiday:0,off:0};
-  for(const k in o.days){if(pre&&!k.startsWith(pre))continue;const s=o.days[k].s;if(!s)continue;if(s.startsWith('leave'))c.leave++;else c[s]++}
+  for(const k in o.days){if(pre&&!k.startsWith(pre))continue;const s=o.days[k].s;if(!s)continue;const w=o.days[k].c||1;if(s.startsWith('leave'))c.leave+=w;else if(s=='present'||s=='absent'||s=='half')c[s]+=w;else c[s]++}
   c.T=c.present+c.half+c.absent+c.leave; c.A=c.present+c.half*.5; c.pct=c.T?Math.round(c.A/c.T*100):0; return c;
 }
 function hint(o){
@@ -216,7 +217,7 @@ function subject(){
   const mn=ym.toLocaleString('en',{month:'short'})+" "+y;
   let cells=['SUN','MON','TUE','WED','THU','FRI','SAT'].map(d=>`<div class="h">${d}</div>`).join('')+'<div></div>'.repeat(first);
   for(let d=1;d<=n;d++){const k=key(y,m,d),r=o.days[k]||{},s=r.s||'';
-    cells+=`<div data-d="${k}" class="${s} ${k==t?'today':''} ${r.n?'nt':''}">${d}${s&&!['present','absent','half'].includes(s)?`<small>${s.startsWith('leave')?'Leave':SHORT[s]}</small>`:''}</div>`}
+    cells+=`<div data-d="${k}" class="${s} ${k==t?'today':''} ${r.n?'nt':''}">${d}${r.c>1?`<em>×${r.c}</em>`:''}${s&&!['present','absent','half'].includes(s)?`<small>${s.startsWith('leave')?'Leave':SHORT[s]}</small>`:''}</div>`}
   const c=stats(o,scope=='month'?`${y}-${pad(m+1)}`:''),ok=c.pct>=o.target;
   $('#app').innerHTML=`<header><button class="ib" data-a="back">←</button><h1>${esc(o.name)} ${esc(o.emoji)}</h1><button class="ib" data-a="smenu">⋮</button></header>
   <div class="nav"><button data-a="prev">‹ PREV</button><span>${mn}</span><button data-a="next">NEXT ›</button></div>
@@ -230,6 +231,7 @@ function subject(){
 function daySheet(k){
   const r=cur.days[k]||{s:'',n:''};
   sheet(`<h3>${k}</h3>
+  <div class="chips" style="align-items:center"><span style="padding:0 4px">classes</span><button data-a="cdec">−</button><b style="min-width:24px;text-align:center;font-size:20px">${r.c||1}</b><button data-a="cinc">+</button><span style="color:var(--mu);font-size:12px">counted for present / absent / half / leave</span></div>
   <button class="row" data-s="present"><span style="color:#4ee082">✔</span>Present</button>
   <button class="row" data-s="absent"><span style="color:#ff5a68">✕</span>Absent</button>
   <button class="row" data-s="half"><span style="color:var(--o)">◐</span>Half Day</button>
@@ -242,7 +244,7 @@ function daySheet(k){
 }
 function setDay(k,s){
   const r=cur.days[k]||{s:'',n:''};
-  if(s=='__note'){const v=prompt('note for '+k,r.n);if(v===null)return;r.n=v}else r.s=s;
+  if(s=='__note'){const v=prompt('note for '+k,r.n);if(v===null)return;r.n=v}else{r.s=s;if(!s)r.c=1}
   cur.days[k]=r; save(cur); close(); subject();
 }
 function formSheet(o){
@@ -260,7 +262,7 @@ function exportX(){
   const wb=XLSX.utils.book_new(),sum=[['subject','target %','present','half days','absent','leaves','attendance %','status']];
   Object.values(S).forEach(o=>{const c=stats(o);sum.push([o.name,o.target,c.present,c.half,c.absent,c.leave,c.pct,c.pct>=o.target?'on target':'below target'])});
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),'summary');
-  Object.values(S).forEach((o,i)=>{const rows=[['date','status','note']];Object.keys(o.days).sort().forEach(k=>rows.push([k,(LBL[o.days[k].s]||'').toLowerCase(),o.days[k].n]));
+  Object.values(S).forEach((o,i)=>{const rows=[['date','status','classes','note']];Object.keys(o.days).sort().forEach(k=>rows.push([k,(LBL[o.days[k].s]||'').toLowerCase(),o.days[k].c||1,o.days[k].n]));
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),(i+1+' '+o.name).replace(/[\\\/?*\[\]:]/g,'').slice(0,31))});
   XLSX.writeFile(wb,'attendance_'+today()+'.xlsx');
 }
@@ -269,10 +271,11 @@ function exportX(){
 document.addEventListener('click',async e=>{
   const t=e.target.closest('[data-a],[data-q],[data-d],[data-s]'); if(!t)return;
   const a=t.dataset.a;
-  if(t.dataset.q!==undefined){const o=S[t.closest('.card').dataset.f];o.days[today()]={s:t.dataset.q,n:(o.days[today()]||{}).n||''};await save(o);home();return}
+  if(t.dataset.q!==undefined){const o=S[t.closest('.card').dataset.f];o.days[today()]={s:t.dataset.q,n:(o.days[today()]||{}).n||'',c:(o.days[today()]||{}).c||1};await save(o);home();return}
   if(t.dataset.s!==undefined){setDay($('#sh').dataset.k,t.dataset.s);return}
   if(t.dataset.d){daySheet(t.dataset.d);return}
   if(a=='add')cur=null,formSheet(null);
+  else if(a=='cdec'||a=='cinc'){const k=$('#sh').dataset.k,r=cur.days[k]||{s:'',n:'',c:1};r.c=Math.min(8,Math.max(1,(r.c||1)+(a=='cinc'?1:-1)));cur.days[k]=r;save(cur);subject();daySheet(k)}
   else if(a=='saveform')saveForm(t.dataset.e=='1');
   else if(a=='menu')sheet(`<h3>Menu</h3><button class="row" data-a="xl">⬇ Export to Excel</button><button class="row" data-a="allmd">⬇ Download all .md files</button><button class="row" data-a="imp">⬆ Import .md files</button><button class="row" data-a="folder">📁 Sync to a folder (desktop)</button>`);
   else if(a=='imp'){close();importMd()}
