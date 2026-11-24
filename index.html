@@ -73,13 +73,13 @@ header h1{flex:1;font-family:var(--cry);font-size:18px;font-weight:400;margin:0;
 #app{position:relative;z-index:0}
 #app.home header{background:transparent}
 .card>*{position:relative;z-index:1}
-.card>canvas.wv{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;border-radius:inherit}
+.card>canvas.wv{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;border-radius:inherit;transform:translateZ(0)}
 </style>
 </head>
 <body>
 <div id="app"></div>
 <div id="ov"><div id="sh"></div></div>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 const $=s=>document.querySelector(s), pad=n=>String(n).padStart(2,'0');
 const LBL={present:'Present',absent:'Absent',half:'Half Day',holiday:'Holiday',off:'Weekly Off','leave-privileged':'Privileged leave','leave-casual':'Casual leave','leave-sick':'Sick leave','leave-other':'Other leave'};
@@ -182,7 +182,14 @@ function blackout(){const d=document.createElement('div');d.className='blk';docu
 let tankId=0;
 function stepFish(f,W,H,dt){
   f.tt-=dt;if(f.tt<=0){f.turn=(Math.random()-.5)*.035;f.tt=60+Math.random()*120}
-  f.a+=f.turn*dt;const m=Math.min(50,H/3);
+  if(f.flee>0){
+    const desired=Math.atan2(f.fy-f.y,f.fx-f.x);
+    let d=Math.atan2(Math.sin(desired-f.a),Math.cos(desired-f.a));
+    f.a+=Math.max(-.13*dt,Math.min(.13*dt,d));
+    f.flee=Math.max(0,f.flee-dt);
+    f.sp=Math.min(2.2,f.baseSp+1.1*f.flee);
+  }else{f.sp+=(f.baseSp-f.sp)*.025*dt;f.a+=f.turn*dt}
+  const m=Math.min(50,H/3);
   if(f.x<m||f.x>W-m||f.y<m||f.y>H-m){let d=Math.atan2(H*.62-f.y,W/2-f.x)-f.a;d=Math.atan2(Math.sin(d),Math.cos(d));f.a+=d*.05*dt}
   f.x+=Math.cos(f.a)*f.sp*dt;f.y+=Math.sin(f.a)*f.sp*dt;
   const L=7*f.len;
@@ -226,7 +233,7 @@ function tankStart(){
     const n=gw*gh;h=new Float32Array(n);v=new Float32Array(n);dv=new Float32Array(n);dh=new Float32Array(n);fd=new Float32Array(n);
     for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){const d=Math.min(x,y,gw-1-x,gh-1-y),t=Math.max(0,(14-d)/14),i=y*gw+x;dv[i]=.9975*(1-.25*t*t);dh[i]=.9997*(1-.12*t*t);fd[i]=Math.min(1,d/6)}
     off.width=gw;off.height=gh;img=oc.createImageData(gw,gh);
-    fish=[0,1,2,3].map(i=>({x:VW*Math.random(),y:VH*(.4+Math.random()*.55),a:Math.random()*6.28,sp:.5+Math.random()*.25,len:[1,.85,.7,.6][i],ph:Math.random()*9,tt:0,turn:0,seg:null}));
+    fish=[0,1,2,3].map(i=>{const s=.5+Math.random()*.25;return{x:VW*Math.random(),y:VH*(.4+Math.random()*.55),a:Math.random()*6.28,sp:s,baseSp:s,len:[1,.85,.7,.6][i],ph:Math.random()*9,tt:0,turn:0,seg:null,flee:0,fx:0,fy:0}});
   };fit();
   const inject=(x,y,a,r)=>{
     const gx=x/cell,gy=y/cell,R=Math.ceil(r*2.2);
@@ -247,8 +254,12 @@ function tankStart(){
   };
   const pt=e=>{const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}};
   if(box){
+    const scare=(x,y)=>{
+      for(const f of fish){const dx=f.x-(x-M),dy=f.y-(y-M),d=Math.hypot(dx,dy);
+        if(d<Math.max(105,70*f.len)){const a=Math.atan2(dy,dx);f.fx=f.x+Math.cos(a)*190;f.fy=f.y+Math.sin(a)*190;f.flee=42+Math.random()*22;f.turn=(Math.random()-.5)*.02}}
+    };
     box.onpointerdown=e=>{const p=pt(e),n=performance.now(),pr=(e.pointerType!='mouse'&&e.pressure>0&&e.pressure!=.5)?e.pressure:.5;
-      act[e.pointerId]={x:p.x,y:p.y,t:n,lp:n,mv:n};if(e.pointerType=='mouse')box.setPointerCapture(e.pointerId);inject(p.x,p.y,-(6+14*pr),2.6)};
+      scare(p.x,p.y);act[e.pointerId]={x:p.x,y:p.y,t:n,lp:n,mv:n};if(e.pointerType=='mouse')box.setPointerCapture(e.pointerId);inject(p.x,p.y,-(9+17*pr),3.1)};
     box.onpointermove=e=>{const a=act[e.pointerId];if(!a)return;const p=pt(e),dist=Math.hypot(p.x-a.x,p.y-a.y);if(dist<1)return;
       const steps=Math.max(1,Math.ceil(dist/(cell*.7))),amt=-(.35+Math.min(1.4,dist*.05));
       for(let i=1;i<=steps;i++)inject(a.x+(p.x-a.x)*i/steps,a.y+(p.y-a.y)*i/steps,amt,1.5);a.x=p.x;a.y=p.y;a.mv=performance.now()};
@@ -269,76 +280,116 @@ function tankStart(){
   requestAnimationFrame(draw);
 }
 
-/* ---------- card water: smooth, natural surface ---------- */
+/* ---------- card water: tilt-driven sloshing liquid ---------- */
+let gam=0,gamS=0,beta=0,betaS=0,gotM=false,tiltAt=0,tc=0;const WS={};
+const IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform=='MacIntel'&&navigator.maxTouchPoints>1);
+function onOri(e){
+  if(e.gamma!=null){gam=Math.max(-75,Math.min(75,e.gamma));}
+  if(e.beta!=null){beta=Math.max(-75,Math.min(75,e.beta-45));}
+  tiltAt=performance.now();gotM=true;
+}
+function onMot(e){
+  const a=e.accelerationIncludingGravity;if(!a||a.x==null||a.y==null)return;
+  tiltAt=performance.now();
+  const roll=Math.atan2(IOS?a.x:-a.x,IOS?-a.y:a.y)*180/Math.PI;
+  const pitch=Math.atan2(a.x,Math.max(1,Math.abs(a.y)))*180/Math.PI;
+  gam=Math.max(-75,Math.min(75,roll));beta=Math.max(-75,Math.min(75,pitch));
+  gotM=true;
+}
+addEventListener('devicemotion',onMot);addEventListener('deviceorientation',onOri);
+document.addEventListener('click',()=>{
+  if(window.__ask)return;window.__ask=1;
+  const M=window.DeviceMotionEvent,O=window.DeviceOrientationEvent;
+  if(M&&M.requestPermission)M.requestPermission().then(r=>{if(r=='granted')addEventListener('devicemotion',onMot)}).catch(()=>{});
+  if(O&&O.requestPermission)O.requestPermission().then(r=>{if(r=='granted')addEventListener('deviceorientation',onOri)}).catch(()=>{});
+});
 let waterId=0;
 function waterStart(){
-  const my=++waterId,N=96;
-  let prev=performance.now();
+  const my=++waterId,N=100,K=42;let prev=performance.now();
   const frame=now=>{
     if(waterId!==my)return;
-    const cs=document.querySelectorAll('.card canvas.wv');
-    if(!cs.length)return;
-    const dt=Math.min(2.5,(now-prev)/16.67);prev=now;
+    const cs=document.querySelectorAll('.card canvas.wv');if(!cs.length)return;
+    const dt=Math.min(2.2,(now-prev)/16.67);prev=now;
+    gamS+=(gam-gamS)*Math.min(1,.16*dt);betaS+=(beta-betaS)*Math.min(1,.16*dt);
+    if(tc++%24===0){const t=document.getElementById('tl');if(t)t.textContent=performance.now()-tiltAt<1800?'tilt '+Math.round(gamS)+'°':'tilt: no sensor data'}
     cs.forEach(cv=>{
-      const card=cv.parentNode;
-      if(card.style.opacity!==''&&+card.style.opacity<.06)return;
-      const W=card.clientWidth,H=card.clientHeight;
+      const card=cv.parentNode;if(card.style.opacity!==''&&+card.style.opacity<.04)return;
+      const W=card.clientWidth,H=card.clientHeight;if(!W||!H)return;
       const dpr=Math.min(devicePixelRatio||1,2);
-      if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){
-        cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
-      }
-      const f=card.dataset.f,o=S[f];
-      const st=WS[f]||(WS[f]={f:0,h:new Float32Array(N),v:new Float32Array(N),tm:0,phase:Math.random()*6.28});
-      st.f+=((o?stats(o).pct:0)/100*.94-st.f)*Math.min(1,.05*dt);
+      if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr)}
+      const f=card.dataset.f,o=S[f],st=WS[f]||(WS[f]={fill:0,angle:0,angleY:0,vel:0,velY:0,phase:0,impulse:0,h:new Float32Array(N),v:new Float32Array(N),tm:0,last:now});
+      const pct=o?stats(o).pct:0,targetFill=Math.max(0,Math.min(1,pct/100));
+      st.fill+=(targetFill-st.fill)*Math.min(1,.09*dt);
+      const wheel=(card._rot||0),gx=Math.sin((gamS+wheel)*Math.PI/180),gy=Math.sin(betaS*Math.PI/180);
+      const targetX=Math.max(-.95,Math.min(.95,gx)),targetY=Math.max(-.7,Math.min(.7,gy));
+      st.vel+=(targetX-st.angle)*.095*dt-st.vel*.16*dt;st.angle+=st.vel*dt;
+      st.velY+=(targetY-st.angleY)*.075*dt-st.velY*.18*dt;st.angleY+=st.velY*dt;
+      st.phase+=dt*(.035+Math.abs(st.vel)*.22);
       const h=st.h,v=st.v;
-      st.tm-=dt;
-      if(st.tm<=0){
-        const at=8+Math.random()*(N-16);
-        v[at]+=(Math.random()-.5)*1.1;
-        st.tm=55+Math.random()*85;
-      }
-      for(let k=0;k<2;k++){
-        for(let i=0;i<N;i++){
-          const l=h[i?i-1:i],r=h[i<N-1?i+1:i];
-          v[i]=(v[i]+.27*(l+r-2*h[i]))*.986;
-        }
-        for(let i=0;i<N;i++)h[i]=Math.max(-9,Math.min(9,h[i]+v[i]));
-      }
-      const y0=H*(1-st.f),P=[];
+      // Inertial slosh: acceleration excites the surface; neighbouring samples carry the wave.
+      const accel=(st.vel*2.5+st.angle*.16);
       for(let i=0;i<N;i++){
-        const x=i/(N-1)*W;
-        const swell=Math.sin(i*.105+now*.00055+st.phase)*1.15+
-                    Math.sin(i*.047-now*.00034+st.phase*1.7)*.75;
-        P.push({x,y:y0-h[i]+swell,ok:st.f>.004&&y0<H+3,
-          slope:(h[Math.min(N-1,i+1)]-h[Math.max(0,i-1)])});
+        const x=i/(N-1)-.5;
+        v[i]+=(-accel*x*1.8 + Math.sin(st.phase*1.7+x*7)*.012)*dt;
       }
-      const c=cv.getContext('2d');
-      c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,W,H);
-      c.save();
-      c.beginPath();
-      P.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));
-      c.lineTo(W,H);c.lineTo(0,H);c.closePath();
-      const fill=c.createLinearGradient(0,y0,0,H);
-      fill.addColorStop(0,'rgba(105,190,220,.10)');
-      fill.addColorStop(.35,'rgba(65,130,170,.075)');
-      fill.addColorStop(1,'rgba(12,35,55,.025)');
-      c.fillStyle=fill;c.fill();
-      c.restore();
-      c.globalCompositeOperation='screen';c.lineCap='round';c.lineJoin='round';
-      for(const [offset,width,alpha] of [[9,5,.035],[5,3,.07],[1,1.25,.5]]){
-        c.beginPath();let active=false;
-        P.forEach(p=>{
-          if(!p.ok){active=false;return;}
-          if(active)c.lineTo(p.x,p.y+offset);else{c.moveTo(p.x,p.y+offset);active=true;}
-        });
-        c.strokeStyle=`rgba(170,225,245,${alpha})`;
-        c.lineWidth=width;c.stroke();
+      st.tm-=dt;
+      if(st.tm<=0){const at=(Math.random()*(N-8)+4)|0;v[at]+=(Math.random()-.5)*.22;st.tm=100+Math.random()*150}
+      for(let pass=0;pass<2;pass++){
+        for(let i=0;i<N;i++){const l=h[i?i-1:i],r=h[i<N-1?i+1:i];v[i]=(v[i]+.24*(l+r-2*h[i]))*.986}
+        for(let i=0;i<N;i++)h[i]=Math.max(-.11,Math.min(.11,h[i]+v[i]*dt));
       }
-      c.shadowColor='rgba(180,230,255,.45)';c.shadowBlur=5;
-      c.beginPath();
-      P.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));
-      c.strokeStyle='rgba(225,246,255,.72)';c.lineWidth=.85;c.stroke();
-      c.shadowBlur=0;
+      // Hydrostatic baseline: solve the fill level for the current two-axis gravity.
+      const slopeX=Math.tan(st.angle*.52),slopeY=Math.tan(st.angleY*.42);
+      const slope=Math.max(-1.15,Math.min(1.15,slopeX));
+      const area=y0=>{
+        let a=0;
+        for(let k=0;k<K;k++){
+          const x=(k+.5)/K*W, surface=y0+slope*(x-W/2);
+          a+=Math.max(0,Math.min(H,H-surface));
+        }
+        return a*W/K;
+      };
+      const wanted=st.fill*W*H;
+      let lo=-H*1.8-Math.abs(slope)*W,hi=H*1.8+Math.abs(slope)*W;
+      for(let q=0;q<17;q++){const mid=(lo+hi)/2;if(area(mid)>wanted)lo=mid;else hi=mid}
+      const base=(lo+hi)/2,pts=[];
+      for(let i=0;i<N;i++){
+        const x=i/(N-1)*W,edge=Math.pow(Math.abs(i/(N-1)-.5)*2,2);
+        const wave=h[i]*(.7+edge*.3)+Math.sin(st.phase+x*.018)*.8;
+        pts.push({x,y:base+slope*(x-W/2)+wave});
+      }
+      const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,W,H);
+      if(st.fill>.002){
+        c.save();c.beginPath();c.roundRect(0,0,W,H,25);c.clip();
+        c.beginPath();c.moveTo(0,H);c.lineTo(0,pts[0].y);
+        for(let i=1;i<N;i++){const a=pts[i-1],b=pts[i],mx=(a.x+b.x)/2;c.quadraticCurveTo(a.x,a.y,mx,(a.y+b.y)/2)}
+        c.lineTo(W,pts[N-1].y);c.lineTo(W,H);c.closePath();
+        const water=c.createLinearGradient(0,Math.max(0,base-30),0,H);
+        water.addColorStop(0,'rgba(116,211,255,.48)');water.addColorStop(.18,'rgba(42,151,218,.38)');water.addColorStop(1,'rgba(8,48,91,.78)');
+        c.fillStyle=water;c.fill();
+        // Subsurface light bands and moving caustic glints.
+        c.globalCompositeOperation='screen';
+        for(let j=0;j<5;j++){
+          const yy=base+22+j*31+Math.sin(st.phase*.8+j*1.6)*9;
+          c.beginPath();c.moveTo(0,yy);
+          for(let x=0;x<=W;x+=8)c.lineTo(x,yy+Math.sin(x*.035+st.phase*1.4+j)*4+Math.sin(x*.012-st.phase+j)*3);
+          c.strokeStyle=`rgba(148,226,255,${.035+j*.008})`;c.lineWidth=1.2;c.stroke();
+        }
+        // Soft meniscus and bright, broken specular edge.
+        c.globalCompositeOperation='lighter';c.lineCap='round';c.lineJoin='round';
+        c.beginPath();c.moveTo(pts[0].x,pts[0].y);
+        for(let i=1;i<N;i++){const a=pts[i-1],b=pts[i],mx=(a.x+b.x)/2;c.quadraticCurveTo(a.x,a.y,mx,(a.y+b.y)/2)}
+        c.strokeStyle='rgba(135,220,255,.25)';c.lineWidth=10;c.shadowColor='rgba(92,194,255,.42)';c.shadowBlur=13;c.stroke();
+        c.shadowBlur=0;c.strokeStyle='rgba(224,249,255,.86)';c.lineWidth=1.6;c.stroke();
+        c.strokeStyle='rgba(255,255,255,.45)';c.lineWidth=.65;c.stroke();
+        // A few drifting highlights make the liquid read as moving volume.
+        for(let j=0;j<9;j++){
+          const x=((j*79+st.phase*21*(j%2?1:-1))%(W+36)+W+36)%(W+36)-18;
+          const idx=Math.max(0,Math.min(N-1,Math.round(x/W*(N-1)))),y=pts[idx].y+18+(j%4)*18+Math.sin(st.phase+j)*7;
+          if(y<H-5){c.beginPath();c.ellipse(x,y,5+(j%3)*3,1.1,Math.sin(st.phase+j)*.18,0,Math.PI*2);c.fillStyle='rgba(190,238,255,.12)';c.fill()}
+        }
+        c.restore();
+      }
     });
     requestAnimationFrame(frame);
   };
@@ -354,7 +405,7 @@ function wheelUpdate(){
     const a=Math.abs(off); let op=Math.min(1,3.4-a); if(n>2)op=Math.min(op,(n/2-a)*2);
     op=Math.max(0,op)*(1-Math.min(a,3)*.18);
     el.style.transform=`rotate(${off*11}deg) scale(${1-Math.min(a,4)*.035})`;
-    el.style.opacity=op; el.style.zIndex=100-Math.round(a*10);
+    el._rot=off*11;el.style.opacity=op; el.style.zIndex=100-Math.round(a*10);
     el.style.filter=`brightness(${1-Math.min(a,3)*.2})`; el.style.pointerEvents=op>.05?'auto':'none';
   });
 }
